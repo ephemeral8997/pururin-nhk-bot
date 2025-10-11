@@ -69,22 +69,18 @@ class WelcomeNHKFeed(commands.Cog):
             url="https://www.redditstatic.com/desktop2x/img/favicon/apple-icon-57x57.png"
         )
 
-        # Add flair if available
         if post.get("link_flair_text"):
             embed.add_field(name="Flair", value=post["link_flair_text"], inline=True)
 
-        # Add score and comments
         embed.add_field(name="Upvotes", value=str(post.get("ups", 0)), inline=True)
         embed.add_field(
             name="Comments", value=str(post.get("num_comments", 0)), inline=True
         )
 
-        # Add image if it's a direct image link
         image_url = post.get("url_overridden_by_dest", "")
         if image_url.endswith((".jpg", ".jpeg", ".png", ".gif", ".webp")):
             embed.set_image(url=image_url)
 
-        # Add crosspost info if available
         if post.get("crosspost_parent_list"):
             source = post["crosspost_parent_list"][0]
             origin = source.get("subreddit_name_prefixed", "Unknown")
@@ -99,12 +95,20 @@ class WelcomeNHKFeed(commands.Cog):
             if not webhook:
                 webhook = await channel.create_webhook(name=self.webhook_name)  # type: ignore
                 logger.info(f"Created new webhook: {self.webhook_name}")
-                await webhook.send(  # type: ignore
-                    embed=embed, username=self.webhook_name
-                )
-                logger.info(f"Posted new Reddit embed via webhook to {channel.name}")  # type: ignore
+
+            history = [msg async for msg in channel.history(limit=10)]  # type: ignore
+            for msg in history:  # type: ignore
+                if msg.webhook_id == webhook.id and msg.embeds:  # type: ignore
+                    last_embed = msg.embeds[0]  # type: ignore
+                    if last_embed.url == embed.url:  # type: ignore
+                        logger.info("Post already sent by webhook. Skipping.")
+                        return
+
+            await webhook.send(embed=embed, username=self.webhook_name)  # type: ignore
+            logger.info(f"Posted new Reddit embed via webhook to {channel.name}")  # type: ignore
         except Exception as e:
             logger.error(f"Error sending embed via webhook: {e}")
+            return
 
     @fetch_reddit_posts.before_loop
     async def before_fetch(self):
