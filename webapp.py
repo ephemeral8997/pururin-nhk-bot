@@ -10,6 +10,11 @@ def health():
     return "OK", 200
 
 
+@app.route("/kaithheathcheck")
+def health():
+    return "OK", 200
+
+
 def run_healthcheck():
     app.run(host="0.0.0.0", port=8080)
 
