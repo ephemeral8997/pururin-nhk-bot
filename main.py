@@ -27,6 +27,8 @@ class Pururin(commands.Bot):
                 logger.error(f"Failed to load extension {module.name}")
             except commands.ExtensionFailed:
                 logger.error(f"Failed to load extension {module.name}")
+            except commands.NoEntryPointError:
+                logger.error(f"{module.name} has no entry point")
             except Exception as e:
                 logger.error(f"Failed to load extension {module.name}", exc_info=e)
             else:
