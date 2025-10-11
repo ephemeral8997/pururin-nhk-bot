@@ -1,4 +1,3 @@
-# healthcheck.py
 from flask import Flask
 from threading import Thread
 
@@ -6,12 +5,12 @@ app = Flask(__name__)
 
 
 @app.route("/kaithhealthcheck")
-def health():
+def health_typo():
     return "OK", 200
 
 
 @app.route("/kaithheathcheck")
-def health():
+def health_correct():
     return "OK", 200
 
 
