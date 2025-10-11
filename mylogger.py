@@ -11,5 +11,5 @@ def getLogger(name: str) -> logging.Logger:
         )
         handler.setFormatter(formatter)
         logger.addHandler(handler)
-        logger.setLevel(logging.DEBUG)  # or configurable
+        logger.setLevel(logging.DEBUG)
     return logger

@@ -90,7 +90,6 @@ class WelcomeNHKFeed(commands.Cog):
             origin = source.get("subreddit_name_prefixed", "Unknown")
             embed.add_field(name="Crossposted from", value=origin, inline=False)
 
-        # Footer with author
         embed.set_footer(text=f"Posted by u/{post.get('author', 'unknown')}")
 
         try:
