@@ -22,20 +22,20 @@ class Pururin(commands.Bot):
             try:
                 await self.load_extension(module.name)
             except commands.ExtensionAlreadyLoaded:
-                mylogger.info(f"Extension {module.name} is already loaded")
+                logger.info(f"Extension {module.name} is already loaded")
             except commands.ExtensionNotFound:
-                mylogger.error(f"Failed to load extension {module.name}")
+                logger.error(f"Failed to load extension {module.name}")
             except commands.ExtensionFailed:
-                mylogger.error(f"Failed to load extension {module.name}")
+                logger.error(f"Failed to load extension {module.name}")
             except Exception as e:
-                mylogger.error(f"Failed to load extension {module.name}", exc_info=e)
+                logger.error(f"Failed to load extension {module.name}", exc_info=e)
             else:
-                mylogger.info(f"Loaded extension {module.name}")
+                logger.info(f"Loaded extension {module.name}")
         await self.tree.sync()
         return await super().setup_hook()
 
     async def on_ready(self):
-        mylogger.info(f"Logged in as {self.user}")
+        logger.info(f"Logged in as {self.user}")
 
 
 async def main():
@@ -45,7 +45,7 @@ async def main():
     except KeyboardInterrupt:
         pass
     except discord.LoginFailure:
-        mylogger.error("Invalid token")
+        logger.error("Invalid token")
     finally:
         await bot.close()
 
