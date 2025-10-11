@@ -18,7 +18,7 @@ class Pururin(commands.Bot):
         )
 
     async def setup_hook(self) -> None:
-        for module in pkgutil.iter_modules(["cogs"], prefix="cogs."):
+        for module in pkgutil.iter_modules(["exts"], prefix="exts."):
             try:
                 await self.load_extension(module.name)
             except commands.ExtensionAlreadyLoaded:
