@@ -29,8 +29,13 @@ class Pururin(commands.Bot):
                 mylogger.error(f"Failed to load extension {module.name}")
             except Exception as e:
                 mylogger.error(f"Failed to load extension {module.name}", exc_info=e)
+            else:
+                mylogger.info(f"Loaded extension {module.name}")
         await self.tree.sync()
         return await super().setup_hook()
+
+    async def on_ready(self):
+        mylogger.info(f"Logged in as {self.user}")
 
 
 async def main():
@@ -45,4 +50,7 @@ async def main():
         await bot.close()
 
 
-asyncio.run(main())
+try:
+    asyncio.run(main())
+except KeyboardInterrupt:
+    pass
