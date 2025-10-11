@@ -16,7 +16,6 @@ class Pururin(commands.Bot):
         super().__init__(
             command_prefix="!", intents=discord.Intents.default(), help_command=None
         )
-        self.tree = discord.app_commands.CommandTree(self)  # type: ignore
 
     async def setup_hook(self) -> None:
         for module in pkgutil.iter_modules(["cogs"], prefix="cogs."):
