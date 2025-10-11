@@ -5,7 +5,7 @@ from threading import Thread
 app = Flask(__name__)
 
 
-@app.route("/kaithheathcheck")
+@app.route("/kaithhealthcheck")
 def health():
     return "OK", 200
 
