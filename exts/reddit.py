@@ -13,7 +13,6 @@ class WelcomeNHKFeed(commands.Cog):
         self.channel_id = int(os.getenv("REDDIT_WELCOME_CHANNEL_ID", 0))
         self.last_post_id = None
         self.webhook_name = "r/WelcomeToTheNHK"
-        self.avatar_path = "assets/Reddit.png"
         self.fetch_reddit_posts.start()
 
     async def cog_unload(self) -> None:
@@ -101,10 +100,8 @@ class WelcomeNHKFeed(commands.Cog):
             if not webhook:
                 webhook = await channel.create_webhook(name=self.webhook_name)  # type: ignore
                 logger.info(f"Created new webhook: {self.webhook_name}")
-
-            with open(self.avatar_path, "rb") as avatar:
                 await webhook.send(  # type: ignore
-                    embed=embed, username=self.webhook_name, avatar=avatar.read()
+                    embed=embed, username=self.webhook_name
                 )
                 logger.info(f"Posted new Reddit embed via webhook to {channel.name}")  # type: ignore
         except Exception as e:
