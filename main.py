@@ -13,9 +13,9 @@ logger = mylogger.getLogger(__name__)
 
 class Pururin(commands.Bot):
     def __init__(self):
-        super().__init__(
-            command_prefix="!", intents=discord.Intents.default(), help_command=None
-        )
+        intents = discord.Intents.default()
+        intents.message_content = True
+        super().__init__(command_prefix="!", intents=intents, help_command=None)
 
     async def setup_hook(self) -> None:
         for module in pkgutil.iter_modules(["exts"], prefix="exts."):
