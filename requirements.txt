@@ -1,5 +1,3 @@
 ﻿aiohttp
 discord.py
-flask
 python-dotenv
-waitress
