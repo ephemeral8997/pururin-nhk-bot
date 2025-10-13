@@ -38,7 +38,6 @@ class Pururin(commands.Bot):
 
     async def on_ready(self):
         logger.info(f"Logged in as {self.user}")
-        webapp.start_healthcheck()
 
 
 async def main():
