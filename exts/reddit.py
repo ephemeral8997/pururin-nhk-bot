@@ -19,6 +19,18 @@ class WelcomeNHKFeed(commands.Cog):
         self.fetch_reddit_posts.cancel()
         logger.info("WelcomeNHKFeed cog unloaded.")
 
+    def truncate_text(self, text: str, limit: int = 500) -> str:
+        if not text:
+            return "*No description.*"
+        if len(text) <= limit:
+            return text
+        # Cut at limit
+        truncated = text[:limit]
+        # Backtrack to the last space so we don’t cut a word in half
+        if " " in truncated:
+            truncated = truncated.rsplit(" ", 1)[0]
+        return truncated + "..."
+
     @tasks.loop(minutes=10)
     async def fetch_reddit_posts(self):
         if not self.channel_id:
@@ -60,7 +72,7 @@ class WelcomeNHKFeed(commands.Cog):
         embed = discord.Embed(
             title=post["title"],
             url=f"https://reddit.com{post['permalink']}",
-            description=post.get("selftext", "")[:500] or "*No description.*",
+            description=self.truncate_text(post.get("selftext", ""), 500),
             color=discord.Color.orange(),
             timestamp=discord.utils.utcnow(),
         )
