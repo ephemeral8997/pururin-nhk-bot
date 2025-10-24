@@ -60,7 +60,7 @@ class Fandom(commands.Cog):
             logger.warning("No channel ID set")
             return
         channel = self.bot.get_channel(self.channel_id)
-        if not isinstance(channel, discord.TextChannel):
+        if not channel:
             logger.error("Invalid channel ID")
             return
         hooks = await channel.webhooks()
