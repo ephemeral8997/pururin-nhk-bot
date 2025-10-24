@@ -17,17 +17,15 @@ WEBHOOK_NAME_ENV_VAR = "WIKI_RC_WEBHOOK_NAME"
 class Fandom(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
-        self.session = None
-        self.latest_rcid = None
-        self.webhook = None
+        self.session: aiohttp.ClientSession | None = None
+        self.latest_rcid: int | None = None
+        self.webhook: discord.Webhook | None = None
         self.channel_id = int(os.getenv(CHANNEL_ID_ENV_VAR, "0"))
-        print(self.channel_id)
         self.webhook_name = os.getenv(WEBHOOK_NAME_ENV_VAR, "f/WelcomeToTheNHK")
 
     async def cog_load(self):
         self.session = aiohttp.ClientSession()
         await self._bootstrap_latest_rcid()
-        await self._ensure_webhook()
         self.rc_loop.start()
         logger.info("Fandom cog loaded")
 
@@ -61,8 +59,14 @@ class Fandom(commands.Cog):
             logger.warning("No channel ID set")
             return
         channel = self.bot.get_channel(self.channel_id)
-        if not channel:
-            logger.error("Invalid channel ID")
+        if channel is None:
+            try:
+                channel = await self.bot.fetch_channel(self.channel_id)
+            except Exception as e:
+                logger.error(f"Could not fetch channel {self.channel_id}: {e}")
+                return
+        if not isinstance(channel, discord.TextChannel):
+            logger.error(f"Channel {self.channel_id} is not a text channel")
             return
         hooks = await channel.webhooks()
         for hook in hooks:
@@ -113,13 +117,14 @@ class Fandom(commands.Cog):
         revid = ev.get("revid")
         newlen = ev.get("newlen")
         oldlen = ev.get("oldlen")
-        size_delta = None
-        if newlen is not None and oldlen is not None:
-            size_delta = newlen - oldlen
-        if revid:
-            diff_url = f"{WIKI_BASE}/wiki/Special:Diff/{revid}"
-        else:
-            diff_url = f"{WIKI_BASE}/wiki/{title.replace(' ','_')}?action=history"
+        size_delta = (
+            newlen - oldlen if newlen is not None and oldlen is not None else None
+        )
+        diff_url = (
+            f"{WIKI_BASE}/wiki/Special:Diff/{revid}"
+            if revid
+            else f"{WIKI_BASE}/wiki/{title.replace(' ','_')}?action=history"
+        )
         page_url = f"{WIKI_BASE}/wiki/{title.replace(' ','_')}"
         embed = discord.Embed(
             title=title,
@@ -142,6 +147,7 @@ class Fandom(commands.Cog):
     @rc_loop.before_loop
     async def before_rc_loop(self):
         await self.bot.wait_until_ready()
+        await self._ensure_webhook()
 
 
 async def setup(bot: commands.Bot):
