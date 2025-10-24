@@ -1,7 +1,6 @@
 import os
 import aiohttp
 import discord
-import datetime
 from discord.ext import commands, tasks
 import mylogger
 
@@ -26,14 +25,12 @@ class FandomRecentChanges(commands.Cog):
         await self._bootstrap_latest_rcid()
         await self._ensure_webhook()
         self.rc_loop.start()
-        logger.info("FandomRecentChanges cog loaded and loop started")
 
     async def cog_unload(self):
         if self.session:
             await self.session.close()
         if self.rc_loop.is_running():
             self.rc_loop.cancel()
-        logger.info("FandomRecentChanges cog unloaded and loop stopped")
 
     async def _bootstrap_latest_rcid(self):
         try:
@@ -49,26 +46,23 @@ class FandomRecentChanges(commands.Cog):
             rc = data.get("query", {}).get("recentchanges", [])
             if rc:
                 self.latest_rcid = rc[0].get("rcid")
-                logger.debug(f"Bootstrapped latest_rcid={self.latest_rcid}")
         except Exception as e:
-            logger.exception(f"Failed to bootstrap latest_rcid: {e}")
+            logger.error(f"Failed to bootstrap latest_rcid: {e}")
 
     async def _ensure_webhook(self):
         if not CHANNEL_ID:
             logger.warning("No WIKI_RC_CHANNEL_ID set")
             return
         channel = self.bot.get_channel(CHANNEL_ID)
-        if not isinstance(channel, discord.TextChannel):
+        if not channel:
             logger.error("Invalid channel ID for webhook")
             return
         hooks = await channel.webhooks()
         for hook in hooks:
             if hook.name == WEBHOOK_NAME:
                 self.webhook = hook
-                logger.info(f"Using existing webhook {WEBHOOK_NAME}")
                 return
         self.webhook = await channel.create_webhook(name=WEBHOOK_NAME)
-        logger.info(f"Created new webhook {WEBHOOK_NAME}")
 
     @tasks.loop(seconds=POLL_INTERVAL_SECONDS)
     async def rc_loop(self):
@@ -98,9 +92,8 @@ class FandomRecentChanges(commands.Cog):
                 await self.webhook.send(embed=embed, username=WEBHOOK_NAME)
                 if ev.get("rcid"):
                     self.latest_rcid = ev["rcid"]
-                    logger.debug(f"Posted rcid={self.latest_rcid}")
         except Exception as e:
-            logger.exception(f"Error in rc_loop: {e}")
+            logger.error(f"Error in rc_loop: {e}")
 
     def _build_embed(self, ev: dict) -> discord.Embed:
         title = ev.get("title", "Unknown")
@@ -135,11 +128,3 @@ class FandomRecentChanges(commands.Cog):
             embed.add_field(name="Size", value=f"{sign}{size_delta}", inline=True)
         embed.add_field(name="Diff", value=f"[Open]({diff_url})", inline=True)
         return embed
-
-    @rc_loop.before_loop
-    async def before_rc_loop(self):
-        await self.bot.wait_until_ready()
-
-
-async def setup(bot: commands.Bot):
-    await bot.add_cog(FandomRecentChanges(bot))
