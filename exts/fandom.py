@@ -21,6 +21,7 @@ class Fandom(commands.Cog):
         self.latest_rcid = None
         self.webhook = None
         self.channel_id = int(os.getenv(CHANNEL_ID_ENV_VAR, "0"))
+        print(self.channel_id)
         self.webhook_name = os.getenv(WEBHOOK_NAME_ENV_VAR, "f/WelcomeToTheNHK")
 
     async def cog_load(self):
