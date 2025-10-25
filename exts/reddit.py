@@ -1,6 +1,6 @@
+import os
 import discord
 from discord.ext import commands, tasks
-import os
 import aiohttp
 import mylogger
 
@@ -18,14 +18,14 @@ class WelcomeNHKFeed(commands.Cog):
     async def cog_unload(self) -> None:
         self.fetch_reddit_posts.cancel()
 
-    def truncate_text(self, text: str, limit: int = 500) -> str:
+    @staticmethod
+    def truncate_text(text: str, limit: int = 500) -> str:
         if not text:
             return "*No description.*"
         if len(text) <= limit:
             return text
-        # Cut at limit
+
         truncated = text[:limit]
-        # Backtrack to the last space so we don’t cut a word in half
         if " " in truncated:
             truncated = truncated.rsplit(" ", 1)[0]
         return truncated + "..."
@@ -33,7 +33,7 @@ class WelcomeNHKFeed(commands.Cog):
     @tasks.loop(minutes=10)
     async def fetch_reddit_posts(self):
         if not self.channel_id:
-            logger.debug("Channel ID not set. Skipping fetch.")
+            logger.debug("Channel ID not set, skipping fetch")
             return
 
         url = "https://www.reddit.com/r/WelcomeToTheNHK/new.json?limit=1"
@@ -43,7 +43,7 @@ class WelcomeNHKFeed(commands.Cog):
             async with aiohttp.ClientSession() as session:
                 async with session.get(url, headers=headers) as resp:
                     if resp.status != 200:
-                        logger.warning(f"Reddit API returned status {resp.status}")
+                        logger.warning(f"Reddit API status {resp.status}")
                         return
                     data = await resp.json()
         except Exception as e:
@@ -53,19 +53,19 @@ class WelcomeNHKFeed(commands.Cog):
         try:
             post = data["data"]["children"][0]["data"]
             post_id = post["id"]
-            logger.info(f"Fetched post ID: {post_id} - {post['title']}")
+            logger.info(f"Fetched: {post_id} - {post['title']}")
         except Exception as e:
-            logger.error(f"Error parsing Reddit post data: {e}")
+            logger.error(f"Error parsing Reddit post: {e}")
             return
 
         if post_id == self.last_post_id:
-            logger.debug("No new post found.")
+            logger.debug("No new post")
             return
 
         self.last_post_id = post_id
         channel = self.bot.get_channel(self.channel_id)
         if not channel:
-            logger.warning(f"Channel with ID {self.channel_id} not found.")
+            logger.warning(f"Channel {self.channel_id} not found")
             return
 
         embed = discord.Embed(
@@ -80,21 +80,21 @@ class WelcomeNHKFeed(commands.Cog):
             url="https://www.redditstatic.com/desktop2x/img/favicon/apple-icon-57x57.png"
         )
 
-        if post.get("link_flair_text"):
-            embed.add_field(name="Flair", value=post["link_flair_text"], inline=True)
+        if flair := post.get("link_flair_text"):
+            embed.add_field(name="Flair", value=flair, inline=True)
 
         embed.add_field(name="Upvotes", value=str(post.get("ups", 0)), inline=True)
         embed.add_field(
             name="Comments", value=str(post.get("num_comments", 0)), inline=True
         )
 
-        image_url = post.get("url_overridden_by_dest", "")
-        if image_url.endswith((".jpg", ".jpeg", ".png", ".gif", ".webp")):
-            embed.set_image(url=image_url)
+        if (img := post.get("url_overridden_by_dest", "")) and img.endswith(
+            (".jpg", ".jpeg", ".png", ".gif", ".webp")
+        ):
+            embed.set_image(url=img)
 
-        if post.get("crosspost_parent_list"):
-            source = post["crosspost_parent_list"][0]
-            origin = source.get("subreddit_name_prefixed", "Unknown")
+        if crosspost := post.get("crosspost_parent_list"):
+            origin = crosspost[0].get("subreddit_name_prefixed", "Unknown")
             embed.add_field(name="Crossposted from", value=origin, inline=False)
 
         embed.set_footer(text=f"Posted by u/{post.get('author', 'unknown')}")
@@ -105,26 +105,24 @@ class WelcomeNHKFeed(commands.Cog):
 
             if not webhook:
                 webhook = await channel.create_webhook(name=self.webhook_name)  # type: ignore
-                logger.info(f"Created new webhook: {self.webhook_name}")
+                logger.info(f"Created webhook: {self.webhook_name}")
 
             history = [msg async for msg in channel.history(limit=10)]  # type: ignore
             for msg in history:  # type: ignore
                 if msg.webhook_id == webhook.id and msg.embeds:  # type: ignore
-                    last_embed = msg.embeds[0]  # type: ignore
-                    if last_embed.url == embed.url:  # type: ignore
-                        logger.info("Post already sent by webhook. Skipping.")
+                    if msg.embeds[0].url == embed.url:  # type: ignore
+                        logger.info("Post already sent, skipping")
                         return
 
             await webhook.send(embed=embed, username=self.webhook_name)  # type: ignore
-            logger.info(f"Posted new Reddit embed via webhook to {channel.name}")  # type: ignore
+            logger.info(f"Posted to {channel.name}")  # type: ignore
         except Exception as e:
-            logger.error(f"Error sending embed via webhook: {e}")
-            return
+            logger.error(f"Error sending webhook: {e}")
 
     @fetch_reddit_posts.before_loop
     async def before_fetch(self):
         await self.bot.wait_until_ready()
-        logger.info("Bot is ready. Starting Reddit fetch loop.")
+        logger.info("Starting Reddit fetch loop")
 
 
 async def setup(bot: commands.Bot):
