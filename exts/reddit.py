@@ -17,7 +17,6 @@ class WelcomeNHKFeed(commands.Cog):
 
     async def cog_unload(self) -> None:
         self.fetch_reddit_posts.cancel()
-        logger.info("WelcomeNHKFeed cog unloaded.")
 
     def truncate_text(self, text: str, limit: int = 500) -> str:
         if not text:
