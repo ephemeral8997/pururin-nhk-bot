@@ -50,15 +50,25 @@ class OnMember(commands.Cog):
 
         if channel:
             message = (
-                "📡 **NHK Newsflash** 📡\n\n"
-                f"Breaking: {member.mention} has just joined our community!\n"
-                "🎉 Welcome aboard 🎉\n\n"
-                "Fun Fact of the Day: *Welcome to the new members!*"
+                f"# 📺 Welcome to the Community, {member.mention}! 📺\n\n"
+                "-# 📖 Rules\n"
+                "<#1403657391169601536>\n"
+                "_Breaking the rules will incur a **1,000,000 yen fee**._ 💸\n\n"
+                "-# 📢 Announcements\n"
+                "<#1403657388891967509>\n\n"
+                "-# ⚙️ Channels & Roles\n"
+                "Visit **Channels & Roles** to subscribe for more roles and unlock extra channels.\n\n"
+                "## 🌐 Community Links\n"
+                "- Subreddit: https://www.reddit.com/r/WelcomeToTheNHK/\n"
+                "- Wiki: https://welcometothenhk.fandom.com\n\n"
+                "**Welcome to the broadcast. Enjoy your stay!**"
             )
             try:
                 await channel.send(message)  # type: ignore
             except discord.HTTPException as e:
-                logger.error(f"Failed to send welcome message: {e}")
+                logger.error(
+                    f"Failed to send welcome message to {member.name} ({member.id}): {e}"
+                )
 
 
 async def setup(bot: commands.Bot):
