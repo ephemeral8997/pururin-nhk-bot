@@ -57,9 +57,9 @@ class OnMember(commands.Cog):
                 "<#1403657388891967509>\n\n"
                 "-# ⚙️ Channels & Roles\n"
                 "Visit **Channels & Roles** above the channels to subscribe for more roles and unlock extra channels.\n\n"
-                "## 🌐 Community Links\n"
-                "- Subreddit: https://www.reddit.com/r/WelcomeToTheNHK/\n"
-                "- Wiki: https://welcometothenhk.fandom.com\n\n"
+                # "## 🌐 Community Links\n"
+                # "- Subreddit: https://www.reddit.com/r/WelcomeToTheNHK/\n"
+                # "- Wiki: https://welcometothenhk.fandom.com\n\n"
                 "**Welcome to the broadcast. Enjoy your stay!**"
             )
             try:
