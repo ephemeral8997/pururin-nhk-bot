@@ -51,13 +51,11 @@ class OnMember(commands.Cog):
         if channel:
             message = (
                 f"# 📺 Welcome to the Community, {member.mention}! 📺\n\n"
-                "-# 📖 Rules\n"
                 "<#1403657391169601536>\n"
                 "_Breaking the rules will incur a **1,000,000 yen fee**._ 💸\n\n"
-                "-# 📢 Announcements\n"
                 "<#1403657388891967509>\n\n"
                 "-# ⚙️ Channels & Roles\n"
-                "Visit **Channels & Roles** to subscribe for more roles and unlock extra channels.\n\n"
+                "Visit **Channels & Roles** above the channels to subscribe for more roles and unlock extra channels.\n\n"
                 "## 🌐 Community Links\n"
                 "- Subreddit: https://www.reddit.com/r/WelcomeToTheNHK/\n"
                 "- Wiki: https://welcometothenhk.fandom.com\n\n"
