@@ -1,7 +1,6 @@
 import os
 import aiohttp
 import discord
-import datetime
 from discord.ext import commands, tasks
 import mylogger
 
@@ -10,144 +9,88 @@ logger = mylogger.getLogger(__name__)
 API_ENDPOINT = "https://welcometothenhk.fandom.com/api.php"
 WIKI_BASE = "https://welcometothenhk.fandom.com"
 POLL_INTERVAL_SECONDS = 15
-CHANNEL_ID_ENV_VAR = "WIKI_RC_CHANNEL_ID"
-WEBHOOK_NAME_ENV_VAR = "WIKI_RC_WEBHOOK_NAME"
+
+CHANNEL_ID = int(os.getenv("WIKI_RC_CHANNEL_ID", "0"))
+WEBHOOK_NAME = os.getenv("WIKI_RC_WEBHOOK_NAME", "f/WelcomeToTheNHK")
 
 
 class Fandom(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
-        self.session: aiohttp.ClientSession | None = None
-        self.latest_rcid: int | None = None
-        self.webhook: discord.Webhook | None = None
-        self.channel_id = int(os.getenv(CHANNEL_ID_ENV_VAR, "0"))
-        self.webhook_name = os.getenv(WEBHOOK_NAME_ENV_VAR, "f/WelcomeToTheNHK")
-
-    async def cog_load(self):
-        self.session = aiohttp.ClientSession()
-        await self._bootstrap_latest_rcid()
-        self.rc_loop.start()
-        logger.info("Fandom cog loaded")
+        self.poll_changes.start()
 
     async def cog_unload(self):
-        if self.session:
-            await self.session.close()
-        if self.rc_loop.is_running():
-            self.rc_loop.cancel()
-        logger.info("Fandom cog unloaded")
-
-    async def _bootstrap_latest_rcid(self):
-        try:
-            params = {
-                "action": "query",
-                "list": "recentchanges",
-                "rcprop": "ids",
-                "rclimit": 1,
-                "format": "json",
-            }
-            async with self.session.get(API_ENDPOINT, params=params) as resp:
-                data = await resp.json()
-            rc = data.get("query", {}).get("recentchanges", [])
-            if rc:
-                self.latest_rcid = rc[0].get("rcid")
-                logger.debug(f"Bootstrapped rcid={self.latest_rcid}")
-        except Exception as e:
-            logger.exception(f"Bootstrap failed: {e}")
-
-    async def _ensure_webhook(self):
-        if not self.channel_id:
-            logger.warning("No channel ID set")
-            return
-        channel = self.bot.get_channel(self.channel_id)
-        if channel is None:
-            try:
-                channel = await self.bot.fetch_channel(self.channel_id)
-            except Exception as e:
-                logger.error(f"Could not fetch channel {self.channel_id}: {e}")
-                return
-        if not isinstance(channel, discord.TextChannel):
-            logger.error(f"Channel {self.channel_id} is not a text channel")
-            return
-        hooks = await channel.webhooks()
-        for hook in hooks:
-            if hook.name == self.webhook_name:
-                self.webhook = hook
-                logger.info(f"Using existing webhook {self.webhook_name}")
-                return
-        self.webhook = await channel.create_webhook(name=self.webhook_name)
-        logger.info(f"Created new webhook {self.webhook_name}")
+        self.poll_changes.cancel()
 
     @tasks.loop(seconds=POLL_INTERVAL_SECONDS)
-    async def rc_loop(self):
-        if not self.webhook:
+    async def poll_changes(self):
+        if CHANNEL_ID == 0:
+            logger.warning("No channel ID configured for Fandom cog.")
             return
+
+        channel = self.bot.get_channel(CHANNEL_ID)
+        if channel is None:
+            logger.warning("Channel with ID %s not found.", CHANNEL_ID)
+            return
+
+        params = {
+            "action": "query",
+            "list": "recentchanges",
+            "rcprop": "ids|title|user|comment|timestamp",
+            "rclimit": "1",
+            "format": "json",
+        }
+
         try:
-            params = {
-                "action": "query",
-                "list": "recentchanges",
-                "rcprop": "title|ids|user|comment|timestamp|sizes",
-                "rclimit": 10,
-                "rcdir": "newer",
-                "format": "json",
-            }
-            if self.latest_rcid:
-                params["rcstartid"] = self.latest_rcid
-            async with self.session.get(API_ENDPOINT, params=params) as resp:
-                data = await resp.json()
-            changes = data.get("query", {}).get("recentchanges", [])
-            new_events = []
-            for ev in changes:
-                rcid = ev.get("rcid")
-                if self.latest_rcid is None or (rcid and rcid > self.latest_rcid):
-                    new_events.append(ev)
-            for ev in new_events:
-                embed = self._build_embed(ev)
-                await self.webhook.send(embed=embed, username=self.webhook_name)
-                if ev.get("rcid"):
-                    self.latest_rcid = ev["rcid"]
-                    logger.debug(f"Posted rcid={self.latest_rcid}")
+            async with aiohttp.ClientSession() as session:
+                async with session.get(API_ENDPOINT, params=params) as resp:
+                    if resp.status != 200:
+                        logger.error("API request failed with status %s", resp.status)
+                        return
+                    data = await resp.json()
         except Exception as e:
-            logger.exception(f"Error in rc_loop: {e}")
+            logger.exception("Error fetching recent changes: %s", e)
+            return
 
-    def _build_embed(self, ev: dict) -> discord.Embed:
-        title = ev.get("title", "Unknown")
-        user = ev.get("user", "Unknown")
-        comment = ev.get("comment") or "(no summary)"
-        ts = ev.get("timestamp")
-        revid = ev.get("revid")
-        newlen = ev.get("newlen")
-        oldlen = ev.get("oldlen")
-        size_delta = (
-            newlen - oldlen if newlen is not None and oldlen is not None else None
-        )
-        diff_url = (
-            f"{WIKI_BASE}/wiki/Special:Diff/{revid}"
-            if revid
-            else f"{WIKI_BASE}/wiki/{title.replace(' ','_')}?action=history"
-        )
-        page_url = f"{WIKI_BASE}/wiki/{title.replace(' ','_')}"
+        changes = data.get("query", {}).get("recentchanges", [])
+        if not changes:
+            return
+
+        change = changes[0]
+        rcid = str(change["rcid"])
+
+        last_messages = [m async for m in channel.history(limit=10)]  # type: ignore
+        for msg in last_messages:  # type: ignore
+            if msg.author.bot and msg.embeds:  # type: ignore
+                embed = msg.embeds[0]  # type: ignore
+                if embed.footer and embed.footer.text == f"rcid:{rcid}":  # type: ignore
+                    return
+
         embed = discord.Embed(
-            title=title,
-            url=page_url,
-            description=comment,
-            timestamp=(
-                datetime.datetime.fromisoformat(ts.replace("Z", "+00:00"))
-                if ts
-                else None
-            ),
-            color=discord.Color.blurple(),
+            title=change["title"],
+            url=f"{WIKI_BASE}/?curid={change['pageid']}",
+            description=change.get("comment", "(no summary)"),
+            color=discord.Color.blue(),
+            timestamp=discord.utils.parse_time(change["timestamp"]),  # type: ignore
         )
-        embed.add_field(name="Editor", value=user, inline=True)
-        if size_delta is not None:
-            sign = "+" if size_delta >= 0 else "-"
-            embed.add_field(name="Size", value=f"{sign}{size_delta}", inline=True)
-        embed.add_field(name="Diff", value=f"[Open]({diff_url})", inline=True)
-        return embed
+        embed.set_author(name=change["user"])
+        embed.set_footer(text=f"rcid:{rcid}")
 
-    @rc_loop.before_loop
-    async def before_rc_loop(self):
-        await self.bot.wait_until_ready()
-        await self._ensure_webhook()
+        webhooks = await channel.webhooks()  # type: ignore
+        webhook = discord.utils.get(webhooks, name=WEBHOOK_NAME)  # type: ignore
+        if webhook is None:
+            webhook = await channel.create_webhook(name=WEBHOOK_NAME)  # type: ignore
+            logger.info("Created webhook '%s' in channel %s", WEBHOOK_NAME, CHANNEL_ID)
+
+        await webhook.send(  # type: ignore
+            embed=embed,
+        )
+        logger.info(
+            "Posted recent change rcid=%s by %s on %s",
+            rcid,
+            change["user"],
+            change["title"],
+        )
 
 
 async def setup(bot: commands.Bot):
