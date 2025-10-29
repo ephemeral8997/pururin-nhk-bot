@@ -12,7 +12,9 @@ class OnMember(commands.Cog):
 
     @commands.Cog.listener("on_member_join")
     async def on_autorole(self, member: discord.Member):
-        member_role_id = os.getenv("MEMBER_ROLE_ID")
+        member_role_id = (
+            os.getenv("MEMBER_ROLE_ID") if not member.bot else os.getenv("BOT_ROLE_ID")
+        )
         if not member_role_id:
             logger.error("MEMBER_ROLE_ID not set in environment")
             return
@@ -38,6 +40,8 @@ class OnMember(commands.Cog):
 
     @commands.Cog.listener("on_member_join")
     async def on_welcome(self, member: discord.Member):
+        if member.bot:
+            return
         welcome_channel_id = os.getenv("WELCOME_CHANNEL_ID")
         if not welcome_channel_id:
             return
