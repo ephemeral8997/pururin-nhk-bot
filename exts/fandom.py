@@ -92,6 +92,10 @@ class Fandom(commands.Cog):
             change["title"],
         )
 
+    @poll_changes.before_loop
+    async def before_fetch(self):
+        await self.bot.wait_until_ready()
+
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(Fandom(bot))

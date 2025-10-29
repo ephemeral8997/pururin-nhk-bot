@@ -33,8 +33,7 @@ class WelcomeNHKFeed(commands.Cog):
     @tasks.loop(minutes=10)
     async def fetch_reddit_posts(self):
         if not self.channel_id:
-            logger.debug("Channel ID not set, skipping fetch")
-            return
+            return  # no need to log every loop if unset
 
         url = "https://www.reddit.com/r/WelcomeToTheNHK/new.json?limit=1"
         headers = {"User-Agent": "DiscordBot/1.0"}
@@ -43,7 +42,7 @@ class WelcomeNHKFeed(commands.Cog):
             async with aiohttp.ClientSession() as session:
                 async with session.get(url, headers=headers) as resp:
                     if resp.status != 200:
-                        logger.warning(f"Reddit API status {resp.status}")
+                        logger.warning(f"Reddit API returned status {resp.status}")
                         return
                     data = await resp.json()
         except Exception as e:
@@ -53,14 +52,12 @@ class WelcomeNHKFeed(commands.Cog):
         try:
             post = data["data"]["children"][0]["data"]
             post_id = post["id"]
-            logger.info(f"Fetched: {post_id} - {post['title']}")
         except Exception as e:
             logger.error(f"Error parsing Reddit post: {e}")
             return
 
         if post_id == self.last_post_id:
-            logger.debug("No new post")
-            return
+            return  # silently skip if no new post
 
         self.last_post_id = post_id
         channel = self.bot.get_channel(self.channel_id)
@@ -111,18 +108,16 @@ class WelcomeNHKFeed(commands.Cog):
             for msg in history:  # type: ignore
                 if msg.webhook_id == webhook.id and msg.embeds:  # type: ignore
                     if msg.embeds[0].url == embed.url:  # type: ignore
-                        logger.info("Post already sent, skipping")
                         return
 
             await webhook.send(embed=embed, username=self.webhook_name)  # type: ignore
-            logger.info(f"Posted to {channel.name}")  # type: ignore
+            logger.info(f"Posted new Reddit post to #{channel.name}")  # type: ignore
         except Exception as e:
             logger.error(f"Error sending webhook: {e}")
 
     @fetch_reddit_posts.before_loop
     async def before_fetch(self):
         await self.bot.wait_until_ready()
-        logger.info("Starting Reddit fetch loop")
 
 
 async def setup(bot: commands.Bot):
