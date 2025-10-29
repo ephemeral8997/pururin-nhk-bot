@@ -36,7 +36,7 @@ class Fandom(commands.Cog):
         params = {
             "action": "query",
             "list": "recentchanges",
-            "rcprop": "ids|title|user|comment|timestamp",
+            "rcprop": "ids|title|user|comment|timestamp|sizes|flags",
             "rclimit": "1",
             "format": "json",
         }
@@ -66,14 +66,36 @@ class Fandom(commands.Cog):
                 if embed.footer and embed.footer.text == f"rcid:{rcid}":  # type: ignore
                     return
 
+        revid = change.get("revid")
+        old_revid = change.get("old_revid")
+        if old_revid:
+            diff_url = f"{WIKI_BASE}/wiki/Special:Diff/{revid}/{old_revid}"
+        else:
+            diff_url = f"{WIKI_BASE}/wiki/Special:Diff/{revid}"
+
+        size_diff = ""
+        if "oldlen" in change and "newlen" in change:
+            diff_val = change["newlen"] - change["oldlen"]
+            sign = "+" if diff_val >= 0 else ""
+            size_diff = f"{sign}{diff_val} bytes"
+
+        color = discord.Color.blue()
+        if "new" in change:
+            color = discord.Color.green()
+        elif "minor" in change:
+            color = discord.Color.gold()
+
         embed = discord.Embed(
             title=change["title"],
-            url=f"{WIKI_BASE}/?curid={change['pageid']}",
+            url=diff_url,
             description=change.get("comment", "(no summary)"),
-            color=discord.Color.blue(),
+            color=color,
             timestamp=discord.utils.parse_time(change["timestamp"]),  # type: ignore
         )
         embed.set_author(name=change["user"])
+        if size_diff:
+            embed.add_field(name="Size Change", value=size_diff, inline=True)
+        embed.add_field(name="Revision ID", value=str(revid), inline=True)
         embed.set_footer(text=f"rcid:{rcid}")
 
         webhooks = await channel.webhooks()  # type: ignore
@@ -82,9 +104,7 @@ class Fandom(commands.Cog):
             webhook = await channel.create_webhook(name=WEBHOOK_NAME)  # type: ignore
             logger.info("Created webhook '%s' in channel %s", WEBHOOK_NAME, CHANNEL_ID)
 
-        await webhook.send(  # type: ignore
-            embed=embed,
-        )
+        await webhook.send(embed=embed)  # type: ignore
         logger.info(
             "Posted recent change rcid=%s by %s on %s",
             rcid,

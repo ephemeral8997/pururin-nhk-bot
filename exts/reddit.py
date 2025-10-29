@@ -33,7 +33,7 @@ class WelcomeNHKFeed(commands.Cog):
     @tasks.loop(minutes=10)
     async def fetch_reddit_posts(self):
         if not self.channel_id:
-            return  # no need to log every loop if unset
+            return
 
         url = "https://www.reddit.com/r/WelcomeToTheNHK/new.json?limit=1"
         headers = {"User-Agent": "DiscordBot/1.0"}
@@ -57,7 +57,7 @@ class WelcomeNHKFeed(commands.Cog):
             return
 
         if post_id == self.last_post_id:
-            return  # silently skip if no new post
+            return
 
         self.last_post_id = post_id
         channel = self.bot.get_channel(self.channel_id)
