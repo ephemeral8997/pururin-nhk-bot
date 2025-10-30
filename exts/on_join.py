@@ -64,7 +64,7 @@ class OnMember(commands.Cog):
                 # "## 🌐 Community Links\n"
                 # "- Subreddit: https://www.reddit.com/r/WelcomeToTheNHK/\n"
                 # "- Wiki: https://welcometothenhk.fandom.com\n\n"
-                "**Welcome to the broadcast. Enjoy your stay!**"
+                "**Enjoy your stay!**"
             )
             try:
                 await channel.send(message)  # type: ignore
