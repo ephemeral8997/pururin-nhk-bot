@@ -63,8 +63,9 @@ class Fandom(commands.Cog):
             return
 
         change = changes[0]
+        print(change)
 
-        if HIDE_MINOR and "minor" in change:
+        if HIDE_MINOR and change.get("minor", False):
             logger.info(
                 "Skipping minor edit rcid=%s by %s on %s",
                 change["rcid"],
