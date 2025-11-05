@@ -52,11 +52,27 @@ class Fandom(commands.Cog):
             logger.exception("Error fetching recent changes: %s", e)
             return
 
+        HIDE_MINOR = os.getenv("WIKI_RC_HIDE_MINOR", "false").lower() in (
+            "1",
+            "true",
+            "yes",
+        )
+
         changes = data.get("query", {}).get("recentchanges", [])
         if not changes:
             return
 
         change = changes[0]
+
+        if HIDE_MINOR and "minor" in change:
+            logger.info(
+                "Skipping minor edit rcid=%s by %s on %s",
+                change["rcid"],
+                change["user"],
+                change["title"],
+            )
+            return
+
         rcid = str(change["rcid"])
 
         last_messages = [m async for m in channel.history(limit=10)]  # type: ignore
