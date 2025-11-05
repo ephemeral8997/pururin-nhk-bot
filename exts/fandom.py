@@ -57,6 +57,8 @@ class Fandom(commands.Cog):
             "true",
             "yes",
         )
+        print(HIDE_MINOR)
+        print(os.getenv("WIKI_RC_HIDE_MINOR", "false").lower())
 
         changes = data.get("query", {}).get("recentchanges", [])
         if not changes:
@@ -64,7 +66,6 @@ class Fandom(commands.Cog):
 
         change = changes[0]
         is_minor = "minor" in change
-        print(is_minor)
 
         if HIDE_MINOR and is_minor:
             logger.info(
