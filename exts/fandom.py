@@ -98,7 +98,9 @@ class Fandom(commands.Cog):
 
         color = discord.Color.blue()
         color = discord.Color.blue()
-        if "new" in change:
+        if revid == 0:
+            color = discord.Color.red()
+        elif "new" in change:
             color = discord.Color.green()
         elif is_minor:
             color = discord.Color.gold()
