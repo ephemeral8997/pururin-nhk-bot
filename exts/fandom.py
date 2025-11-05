@@ -63,7 +63,7 @@ class Fandom(commands.Cog):
             return
 
         change = changes[0]
-        is_minor = "minor" in change
+        is_minor = not "minor" in change
 
         if HIDE_MINOR and is_minor:
             logger.info(
