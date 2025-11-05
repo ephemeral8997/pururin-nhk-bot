@@ -63,9 +63,9 @@ class Fandom(commands.Cog):
             return
 
         change = changes[0]
-        print(change)
+        is_minor = "minor" in change
 
-        if HIDE_MINOR and change.get("minor", False):
+        if HIDE_MINOR and is_minor:
             logger.info(
                 "Skipping minor edit rcid=%s by %s on %s",
                 change["rcid"],
@@ -97,9 +97,10 @@ class Fandom(commands.Cog):
             size_diff = f"{sign}{diff_val} bytes"
 
         color = discord.Color.blue()
+        color = discord.Color.blue()
         if "new" in change:
             color = discord.Color.green()
-        elif "minor" in change:
+        elif is_minor:
             color = discord.Color.gold()
 
         embed = discord.Embed(
