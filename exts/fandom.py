@@ -17,20 +17,31 @@ WEBHOOK_NAME = os.getenv("WIKI_RC_WEBHOOK_NAME", "f/WelcomeToTheNHK")
 class Fandom(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
+        self.last_rcid = None
+        self.webhook = None
         self.poll_changes.start()
 
     async def cog_unload(self):
         self.poll_changes.cancel()
 
+    async def get_webhook(self, channel):
+        if self.webhook is None:
+            webhooks = await channel.webhooks()
+            self.webhook = discord.utils.get(webhooks, name=WEBHOOK_NAME)
+            if self.webhook is None:
+                self.webhook = await channel.create_webhook(name=WEBHOOK_NAME)
+                logger.info(
+                    "Created webhook '%s' in channel %s", WEBHOOK_NAME, CHANNEL_ID
+                )
+        return self.webhook
+
     @tasks.loop(seconds=POLL_INTERVAL_SECONDS)
     async def poll_changes(self):
         if CHANNEL_ID == 0:
-            logger.warning("No channel ID configured for Fandom cog.")
             return
 
         channel = self.bot.get_channel(CHANNEL_ID)
         if channel is None:
-            logger.warning("Channel with ID %s not found.", CHANNEL_ID)
             return
 
         params = {
@@ -45,11 +56,9 @@ class Fandom(commands.Cog):
             async with aiohttp.ClientSession() as session:
                 async with session.get(API_ENDPOINT, params=params) as resp:
                     if resp.status != 200:
-                        logger.error("API request failed with status %s", resp.status)
                         return
                     data = await resp.json()
-        except Exception as e:
-            logger.exception("Error fetching recent changes: %s", e)
+        except Exception:
             return
 
         HIDE_MINOR = os.getenv("WIKI_RC_HIDE_MINOR", "false").lower() in (
@@ -66,22 +75,18 @@ class Fandom(commands.Cog):
         is_minor = "minor" in change
 
         if HIDE_MINOR and is_minor:
-            logger.info(
-                "Skipping minor edit rcid=%s by %s on %s",
-                change["rcid"],
-                change["user"],
-                change["title"],
-            )
             return
 
-        rcid = str(change["rcid"])
+        current_rcid = change["rcid"]
 
-        last_messages = [m async for m in channel.history(limit=10)]  # type: ignore
-        for msg in last_messages:  # type: ignore
-            if msg.author.bot and msg.embeds:  # type: ignore
-                embed = msg.embeds[0]  # type: ignore
-                if embed.footer and embed.footer.text == f"rcid:{rcid}":  # type: ignore
-                    return
+        if self.last_rcid is None:
+            self.last_rcid = current_rcid
+            return
+
+        if current_rcid <= self.last_rcid:
+            return
+
+        self.last_rcid = current_rcid
 
         revid = change.get("revid")
         old_revid = change.get("old_revid")
@@ -97,7 +102,6 @@ class Fandom(commands.Cog):
             size_diff = f"{sign}{diff_val} bytes"
 
         color = discord.Color.blue()
-        color = discord.Color.blue()
         if revid == 0:
             color = discord.Color.red()
         elif "new" in change:
@@ -110,27 +114,16 @@ class Fandom(commands.Cog):
             url=diff_url,
             description=change.get("comment", "(no summary)"),
             color=color,
-            timestamp=discord.utils.parse_time(change["timestamp"]),  # type: ignore
+            timestamp=discord.utils.parse_time(change["timestamp"]),
         )
         embed.set_author(name=change["user"])
         if size_diff:
             embed.add_field(name="Size Change", value=size_diff, inline=True)
         embed.add_field(name="Revision ID", value=str(revid), inline=True)
-        embed.set_footer(text=f"rcid:{rcid}")
+        embed.set_footer(text=f"rcid:{current_rcid}")
 
-        webhooks = await channel.webhooks()  # type: ignore
-        webhook = discord.utils.get(webhooks, name=WEBHOOK_NAME)  # type: ignore
-        if webhook is None:
-            webhook = await channel.create_webhook(name=WEBHOOK_NAME)  # type: ignore
-            logger.info("Created webhook '%s' in channel %s", WEBHOOK_NAME, CHANNEL_ID)
-
-        await webhook.send(embed=embed)  # type: ignore
-        logger.info(
-            "Posted recent change rcid=%s by %s on %s",
-            rcid,
-            change["user"],
-            change["title"],
-        )
+        webhook = await self.get_webhook(channel)
+        await webhook.send(embed=embed)
 
     @poll_changes.before_loop
     async def before_fetch(self):

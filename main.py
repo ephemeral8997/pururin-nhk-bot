@@ -17,26 +17,52 @@ class Pururin(commands.Bot):
         intents = discord.Intents.default()
         intents.message_content = True
         intents.members = True
-        super().__init__(command_prefix="!", intents=intents, help_command=None)
+        super().__init__(
+            command_prefix="!",
+            intents=intents,
+            help_command=None,
+            chunk_guilds_at_startup=False,
+            max_messages=None,
+        )
 
     async def setup_hook(self) -> None:
-        for module in pkgutil.iter_modules(["exts"], prefix="exts."):
-            try:
-                await self.load_extension(module.name)
-            except commands.ExtensionAlreadyLoaded:
-                logger.info(f"Extension {module.name} is already loaded")
-            except commands.ExtensionNotFound:
-                logger.error(f"Failed to load extension {module.name}")
-            except commands.ExtensionFailed:
-                logger.error(f"Failed to load extension {module.name}")
-            except commands.NoEntryPointError:
-                logger.error(f"{module.name} has no setup() function")
-            except Exception as e:
-                logger.error(f"Failed to load extension {module.name}", exc_info=e)
-            else:
+        modules = list(pkgutil.iter_modules(["exts"], prefix="exts."))
+
+        tasks = []
+        for module in modules:
+            task = asyncio.create_task(self._load_extension_safe(module.name))
+            tasks.append(task)  # type: ignore
+
+        results = await asyncio.gather(*tasks, return_exceptions=True)  # type: ignore
+
+        for module, result in zip(modules, results):  # type: ignore
+            if isinstance(result, Exception):
+                logger.error(f"Failed to load {module.name}: {result}")
+            elif result is True:
                 logger.info(f"Loaded extension {module.name}")
-        await self.tree.sync()
+
+        synced = await self.tree.sync()
+        logger.info(f"Synced {len(synced)} commands")
+
         return await super().setup_hook()
+
+    async def _load_extension_safe(self, module_name: str) -> bool:
+        try:
+            await self.load_extension(module_name)
+            return True
+        except commands.ExtensionAlreadyLoaded:
+            logger.info(f"Extension {module_name} is already loaded")
+            return True
+        except (
+            commands.ExtensionNotFound,
+            commands.ExtensionFailed,
+            commands.NoEntryPointError,
+        ) as e:
+            logger.error(f"Failed to load extension {module_name}: {e}")
+            return False
+        except Exception as e:
+            logger.error(f"Unexpected error loading {module_name}", exc_info=e)
+            return False
 
     async def on_ready(self):
         logger.info(f"Logged in as {self.user}")
