@@ -5,8 +5,8 @@ import mylogger
 import asyncio
 import os
 import pkgutil
+import webserver # Trick Render
 
-# import webapp # type: ignore # Trick LeapCode into running the webserver
 load_dotenv()
 
 logger = mylogger.getLogger(__name__)
