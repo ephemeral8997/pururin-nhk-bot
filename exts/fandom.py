@@ -190,7 +190,7 @@ class Fandom(commands.Cog):
                 formatted_title = self.format_page_title(ref)
 
                 if await self.page_exists(session, formatted_title):
-                    url = f"{WIKI_BASE}{formatted_title}"
+                    url = f"{WIKI_BASE}/wiki/{formatted_title}"
                     valid_links.append(f"• **{ref}**: <{url}>")
 
         # Reply with valid links only
