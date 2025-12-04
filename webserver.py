@@ -1,21 +1,14 @@
-import os
-from flask import Flask
-import threading
+from aiohttp import web
 
-app = Flask(__name__)
 
-@app.route('/')
-def home():
-    return 'Server is running!', 200
+async def health_check(_):
+    return web.Response(text="ok")
 
-@app.route('/health')
-def health_check():
-    return 'OK', 200
 
-def run_flask():
-    port = int(os.environ.get('PORT', 10000))
-    app.run(host='0.0.0.0', port=port)
-
-flask_thread = threading.Thread(target=run_flask)
-flask_thread.daemon = True
-flask_thread.start()
+async def start_health_server():
+    app = web.Application()
+    app.router.add_get("/health", health_check)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, "0.0.0.0", int(os.getenv("PORT", "8000")))
+    await site.start()
