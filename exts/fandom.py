@@ -52,9 +52,15 @@ class Fandom(commands.Cog):
             "format": "json",
         }
 
+        headers = {
+            "User-Agent": "WelcomeToTheNHK_DiscordBot/1.0 (Contact: ephemeral8997)"
+        }
+
         try:
             async with aiohttp.ClientSession() as session:
-                async with session.get(API_ENDPOINT, params=params) as resp:
+                async with session.get(
+                    API_ENDPOINT, params=params, headers=headers
+                ) as resp:
                     if resp.status != 200:
                         return
                     data = await resp.json()

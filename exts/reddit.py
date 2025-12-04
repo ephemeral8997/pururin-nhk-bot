@@ -36,7 +36,10 @@ class WelcomeNHKFeed(commands.Cog):
             return
 
         url = "https://www.reddit.com/r/WelcomeToTheNHK/new.json?limit=1"
-        headers = {"User-Agent": "DiscordBot/1.0"}
+
+        headers = {
+            "User-Agent": "DiscordBot:com.yourcompany.NHKFeed:v1.0 (by /u/ephemeral8997)"
+        }
 
         try:
             async with aiohttp.ClientSession() as session:
