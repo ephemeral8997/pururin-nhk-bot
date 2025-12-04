@@ -3,6 +3,7 @@ import aiohttp
 import discord
 from discord.ext import commands, tasks
 import mylogger
+import re
 
 logger = mylogger.getLogger(__name__)
 
@@ -134,6 +135,68 @@ class Fandom(commands.Cog):
     @poll_changes.before_loop
     async def before_fetch(self):
         await self.bot.wait_until_ready()
+
+    async def page_exists(
+        self, session: aiohttp.ClientSession, page_title: str
+    ) -> bool:
+        """Check if a wiki page exists using the MediaWiki API."""
+        params = {"action": "query", "titles": page_title, "format": "json"}
+
+        try:
+            async with session.get(API_ENDPOINT, params=params) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    pages = data.get("query", {}).get("pages", {})
+                    # If page doesn't exist, the key will be "-1"
+                    return "-1" not in pages
+        except Exception:
+            pass
+
+        return False
+
+    def extract_references(self, content: str) -> list[str]:
+        """Extract all [[...]] references from message content."""
+        pattern = r"\[\[([^\[\]]+)\]\]"
+        matches = re.findall(pattern, content)
+
+        seen = set()
+        unique = []
+        for match in matches:
+            if match.lower() not in seen:
+                seen.add(match.lower())
+                unique.append(match)
+        return unique
+
+    def format_page_title(self, title: str) -> str:
+        """Format title for URL (replace spaces with underscores)."""
+        return title.strip().replace(" ", "_")
+
+    @commands.Cog.listener()
+    async def on_message(self, message: discord.Message):
+        if message.author.bot:
+            return
+
+        # Extract [[...]] references
+        references = self.extract_references(message.content)
+
+        if not references:
+            return
+
+        # Check which pages exist
+        valid_links = []
+
+        async with aiohttp.ClientSession() as session:
+            for ref in references:
+                formatted_title = self.format_page_title(ref)
+
+                if await self.page_exists(session, formatted_title):
+                    url = f"{WIKI_BASE}{formatted_title}"
+                    valid_links.append(f"• **{ref}**: <{url}>")
+
+        # Reply with valid links only
+        if valid_links:
+            response = "**Wiki Pages Found:**\n" + "\n".join(valid_links)
+            await message.reply(response, mention_author=False)
 
 
 async def setup(bot: commands.Bot):
