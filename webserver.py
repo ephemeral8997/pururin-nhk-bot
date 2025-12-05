@@ -1,26 +1,46 @@
-from http.server import HTTPServer, BaseHTTPRequestHandler
-import threading
 import os
+import sys
+import traceback
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+import threading
 
 
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
-        self.send_response(200)
-        self.end_headers()
-        self.wfile.write(b"OK")
+        try:
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(b"OK")
+        except Exception:
+            traceback.print_exc(file=sys.stderr)
 
     def do_HEAD(self):
-        self.send_response(200)
-        self.end_headers()
+        try:
+            self.send_response(200)
+            self.end_headers()
+        except Exception:
+            traceback.print_exc(file=sys.stderr)
 
-    def log_message(self, *args): # type: ignore
+    def log_message(self, *args):  # type: ignore
         pass
 
 
-def keep_alive():
+def start_web_server():
     port = int(os.environ.get("PORT", 10000))
-    server = HTTPServer(("0.0.0.0", port), Handler)
-    threading.Thread(target=server.serve_forever, daemon=False).start()
+    server = ThreadingHTTPServer(("0.0.0.0", port), Handler)
+    print(f"Listening on 0.0.0.0:{port}", flush=True)
+
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        pass
+    except Exception:
+        traceback.print_exc(file=sys.stderr)
 
 
-keep_alive()
+def start_web_server_in_thread():
+    t = threading.Thread(target=start_web_server, daemon=True)
+    t.start()
+    return t
+
+start_web_server_in_thread()
