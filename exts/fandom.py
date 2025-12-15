@@ -84,6 +84,18 @@ class Fandom(commands.Cog):
         if HIDE_MINOR and is_minor:
             return
 
+        # ignore edits to pages listed in WIKI_RC_IGNORE_PAGES
+        IGNORE_PAGES = {
+            t.strip().replace("_", " ").title()
+            for t in os.getenv("WIKI_RC_IGNORE_PAGES", "").split(",")
+            if t.strip()
+        }
+        if change["title"].replace("_", " ").title() in IGNORE_PAGES:
+            logger.debug(
+                "Ignored edit to %s (in WIKI_RC_IGNORE_PAGES)", change["title"]
+            )
+            return
+
         current_rcid = change["rcid"]
 
         if self.last_rcid is None:
