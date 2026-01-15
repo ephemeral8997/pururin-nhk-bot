@@ -1,7 +1,6 @@
 import discord
 from discord.ext import commands
 import mylogger
-from typing import Tuple, Optional, Dict
 
 logger = mylogger.getLogger(__name__)
 
@@ -11,17 +10,12 @@ class ErrorHandler(commands.Cog):
         self.bot = bot
 
     @commands.Cog.listener()
-    async def on_error(
-        self,
-        event_method: str,
-        *args: Tuple[str, str, str],
-        **kwargs: Optional[Dict[str, str]],
-    ):
+    async def on_error(self, event_method: str, *args, **kwargs):
         logger.error(f"Unhandled exception in '{event_method}'", exc_info=True)
 
     @commands.Cog.listener()
     async def on_command_error(
-        self, ctx: commands.Context, error: commands.CommandError  # type: ignore
+        self, ctx: commands.Context, error: commands.CommandError
     ):
         if isinstance(error, commands.CommandNotFound):
             return

@@ -9,6 +9,8 @@ logger = mylogger.getLogger(__name__)
 class OnMember(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
+        self.rules_channel_id = os.getenv("RULES_CHANNEL_ID")
+        self.announcements_channel_id = os.getenv("ANNOUNCEMENTS_CHANNEL_ID")
 
     @commands.Cog.listener("on_member_join")
     async def on_autorole(self, member: discord.Member):
@@ -52,26 +54,33 @@ class OnMember(commands.Cog):
             logger.error(f"Invalid WELCOME_CHANNEL_ID: {welcome_channel_id}")
             return
 
-        if channel:
-            message = (
-                f"# 📺 Welcome to the Community, {member.mention}! 📺\n\n"
-                "<#1403657391169601536>\n"
-                "_Breaking the contract will incur a **1,000,000 yen fee**._ 💸\n\n"
-                "-# 📢 Announcements\n"
-                "<#1403657388891967509>\n\n"
-                "-# ⚙️ Channels & Roles\n"
-                "Visit **Channels & Roles** above the channels to subscribe for more roles and unlock extra channels.\n\n"
-                # "## 🌐 Community Links\n"
-                # "- Subreddit: https://www.reddit.com/r/WelcomeToTheNHK/\n"
-                # "- Wiki: https://welcometothenhk.fandom.com\n\n"
-                "**Enjoy your stay!**"
+        if not channel:
+            return
+
+        rules_mention = f"<#{self.rules_channel_id}>" if self.rules_channel_id else ""
+        announcements_mention = (
+            f"<#{self.announcements_channel_id}>"
+            if self.announcements_channel_id
+            else ""
+        )
+
+        message = (
+            f"# 📺 Welcome to the Community, {member.mention}! 📺\n\n"
+            f"{rules_mention}\n"
+            "_Breaking the contract will incur a **1,000,000 yen fee**._ 💸\n\n"
+            "-# 📢 Announcements\n"
+            f"{announcements_mention}\n\n"
+            "-# ⚙️ Channels & Roles\n"
+            "Visit **Channels & Roles** above the channels to subscribe for more roles and unlock extra channels.\n\n"
+            "**Enjoy your stay!**"
+        )
+
+        try:
+            await channel.send(message)  # type: ignore
+        except discord.HTTPException as e:
+            logger.error(
+                f"Failed to send welcome message to {member.name} ({member.id}): {e}"
             )
-            try:
-                await channel.send(message)  # type: ignore
-            except discord.HTTPException as e:
-                logger.error(
-                    f"Failed to send welcome message to {member.name} ({member.id}): {e}"
-                )
 
 
 async def setup(bot: commands.Bot):

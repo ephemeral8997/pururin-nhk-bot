@@ -4,37 +4,37 @@ import discord
 from discord.ext import commands, tasks
 import mylogger
 import re
+import utils
 
 logger = mylogger.getLogger(__name__)
 
 API_ENDPOINT = "https://welcometothenhk.fandom.com/api.php"
 WIKI_BASE = "https://welcometothenhk.fandom.com"
+WIKI_USER_AGENT = "WelcomeToTheNHK_DiscordBot/1.0 (Contact: ephemeral8997)"
 POLL_INTERVAL_SECONDS = 15
 
 CHANNEL_ID = int(os.getenv("WIKI_RC_CHANNEL_ID", "0"))
 WEBHOOK_NAME = os.getenv("WIKI_RC_WEBHOOK_NAME", "f/WelcomeToTheNHK")
+
+HIDE_MINOR = os.getenv("WIKI_RC_HIDE_MINOR", "false").lower() in ("1", "true", "yes")
+
+IGNORE_PAGES = {
+    t.strip().replace("_", " ").title()
+    for t in os.getenv("WIKI_RC_IGNORE_PAGES", "").split(",")
+    if t.strip()
+}
 
 
 class Fandom(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.last_rcid = None
-        self.webhook = None
+        self.session_manager = utils.SessionManager()
         self.poll_changes.start()
 
     async def cog_unload(self):
         self.poll_changes.cancel()
-
-    async def get_webhook(self, channel):
-        if self.webhook is None:
-            webhooks = await channel.webhooks()
-            self.webhook = discord.utils.get(webhooks, name=WEBHOOK_NAME)
-            if self.webhook is None:
-                self.webhook = await channel.create_webhook(name=WEBHOOK_NAME)
-                logger.info(
-                    "Created webhook '%s' in channel %s", WEBHOOK_NAME, CHANNEL_ID
-                )
-        return self.webhook
+        await self.session_manager.close()
 
     @tasks.loop(seconds=POLL_INTERVAL_SECONDS)
     async def poll_changes(self):
@@ -53,26 +53,18 @@ class Fandom(commands.Cog):
             "format": "json",
         }
 
-        headers = {
-            "User-Agent": "WelcomeToTheNHK_DiscordBot/1.0 (Contact: ephemeral8997)"
-        }
+        headers = {"User-Agent": WIKI_USER_AGENT}
 
         try:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(
-                    API_ENDPOINT, params=params, headers=headers
-                ) as resp:
-                    if resp.status != 200:
-                        return
-                    data = await resp.json()
+            session = await self.session_manager.get_session()
+            async with session.get(
+                API_ENDPOINT, params=params, headers=headers
+            ) as resp:
+                if resp.status != 200:
+                    return
+                data = await resp.json()
         except Exception:
             return
-
-        HIDE_MINOR = os.getenv("WIKI_RC_HIDE_MINOR", "false").lower() in (
-            "1",
-            "true",
-            "yes",
-        )
 
         changes = data.get("query", {}).get("recentchanges", [])
         if not changes:
@@ -84,12 +76,6 @@ class Fandom(commands.Cog):
         if HIDE_MINOR and is_minor:
             return
 
-        # ignore edits to pages listed in WIKI_RC_IGNORE_PAGES
-        IGNORE_PAGES = {
-            t.strip().replace("_", " ").title()
-            for t in os.getenv("WIKI_RC_IGNORE_PAGES", "").split(",")
-            if t.strip()
-        }
         if change["title"].replace("_", " ").title() in IGNORE_PAGES:
             logger.debug(
                 "Ignored edit to %s (in WIKI_RC_IGNORE_PAGES)", change["title"]
@@ -141,25 +127,23 @@ class Fandom(commands.Cog):
         embed.add_field(name="Revision ID", value=str(revid), inline=True)
         embed.set_footer(text=f"rcid:{current_rcid}")
 
-        webhook = await self.get_webhook(channel)
+        webhook = await utils.WebhookHelper.get_or_create_webhook(channel, WEBHOOK_NAME)  # type: ignore
         await webhook.send(embed=embed)
 
     @poll_changes.before_loop
     async def before_fetch(self):
         await self.bot.wait_until_ready()
 
-    async def page_exists(
-        self, session: aiohttp.ClientSession, page_title: str
-    ) -> bool:
+    async def page_exists(self, page_title: str) -> bool:
         """Check if a wiki page exists using the MediaWiki API."""
         params = {"action": "query", "titles": page_title, "format": "json"}
 
         try:
+            session = await self.session_manager.get_session()
             async with session.get(API_ENDPOINT, params=params) as response:
                 if response.status == 200:
                     data = await response.json()
                     pages = data.get("query", {}).get("pages", {})
-                    # If page doesn't exist, the key will be "-1"
                     return "-1" not in pages
         except Exception:
             pass
@@ -188,24 +172,18 @@ class Fandom(commands.Cog):
         if message.author.bot:
             return
 
-        # Extract [[...]] references
         references = self.extract_references(message.content)
 
         if not references:
             return
 
-        # Check which pages exist
         valid_links = []
+        for ref in references:
+            formatted_title = self.format_page_title(ref)
+            if await self.page_exists(formatted_title):
+                url = f"{WIKI_BASE}/wiki/{formatted_title}"
+                valid_links.append(f"• **{ref}**: <{url}>")
 
-        async with aiohttp.ClientSession() as session:
-            for ref in references:
-                formatted_title = self.format_page_title(ref)
-
-                if await self.page_exists(session, formatted_title):
-                    url = f"{WIKI_BASE}/wiki/{formatted_title}"
-                    valid_links.append(f"• **{ref}**: <{url}>")
-
-        # Reply with valid links only
         if valid_links:
             response = "**Wiki Pages Found:**\n" + "\n".join(valid_links)
             await message.reply(response, mention_author=False)

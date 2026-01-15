@@ -5,7 +5,7 @@ import mylogger
 import asyncio
 import os
 import pkgutil
-import webserver # Trick Render
+import webserver
 
 load_dotenv()
 
@@ -31,11 +31,11 @@ class Pururin(commands.Bot):
         tasks = []
         for module in modules:
             task = asyncio.create_task(self._load_extension_safe(module.name))
-            tasks.append(task)  # type: ignore
+            tasks.append(task)
 
-        results = await asyncio.gather(*tasks, return_exceptions=True)  # type: ignore
+        results = await asyncio.gather(*tasks, return_exceptions=True)
 
-        for module, result in zip(modules, results):  # type: ignore
+        for module, result in zip(modules, results):
             if isinstance(result, Exception):
                 logger.error(f"Failed to load {module.name}: {result}")
             elif result is True:

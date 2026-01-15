@@ -1,5 +1,4 @@
 import os
-import sys
 import traceback
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import threading
@@ -12,16 +11,16 @@ class Handler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(b"OK")
         except Exception:
-            traceback.print_exc(file=sys.stderr)
+            traceback.print_exc()
 
     def do_HEAD(self):
         try:
             self.send_response(200)
             self.end_headers()
         except Exception:
-            traceback.print_exc(file=sys.stderr)
+            traceback.print_exc()
 
-    def log_message(self, *args):  # type: ignore
+    def log_message(self, format, *args):
         pass
 
 
@@ -35,12 +34,13 @@ def start_web_server():
     except KeyboardInterrupt:
         pass
     except Exception:
-        traceback.print_exc(file=sys.stderr)
+        traceback.print_exc()
 
 
 def start_web_server_in_thread():
     t = threading.Thread(target=start_web_server, daemon=True)
     t.start()
     return t
+
 
 start_web_server_in_thread()
